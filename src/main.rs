@@ -20,12 +20,14 @@ fn main()-> Result<(), eframe::Error> {
 
     thread::spawn(move || {
 
+        let mut sleep : u64;
         loop {
             {
                 let mut data_generator = writer.lock().unwrap();
                 let elements = data_generator.calculate_new_y();
+                sleep = data_generator.sample_period;
             }
-            thread::sleep(Duration::from_micros(50));
+            thread::sleep(Duration::from_micros(sleep));
         }
     });
 
@@ -50,6 +52,7 @@ struct DataGenerator {
     pub y: [f64;BUFSIZE],
     start_time: Instant,
     freq: f64,
+    sample_period: u64
 }
 
 impl DataGenerator { 
@@ -60,7 +63,8 @@ impl DataGenerator {
             y : [0.0; BUFSIZE],
             start_time: Instant::now(),
             freq : 1.0,
-            index : 0
+            index : 0,
+            sample_period : 50,
         }
     }
 
@@ -88,6 +92,7 @@ struct MyApp {
     data_source : Arc<Mutex<DataGenerator>>,
     data_configurer : Arc<Mutex<DataGenerator>>,
     freq: f64,
+    sample_period: u64,
 }
 
 impl MyApp {
@@ -95,7 +100,8 @@ impl MyApp {
         MyApp {
             data_source: data_source,
             data_configurer: data_configurer,
-            freq : 5.0
+            freq : 5.0,
+            sample_period: 50,
         }
     }
 }
@@ -105,6 +111,7 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
         let old_freq = self.freq;
+        let old_sample_period = self.sample_period;
 
         let ydata;  // self.receiver.recv().unwrap().1;
         let xdata;  // self.receiver.recv().unwrap().1;
@@ -138,6 +145,11 @@ impl eframe::App for MyApp {
             ui.add(egui::Slider::new(&mut self.freq, 1.0..=10.0).text("Frequency"));
             if (old_freq != self.freq){
                 self.data_configurer.lock().unwrap().freq = self.freq;
+            }
+
+            ui.add(egui::Slider::new(&mut self.sample_period, 1..=100).text("sample_period (ms)"));
+            if (old_sample_period != self.sample_period){
+                self.data_configurer.lock().unwrap().sample_period = self.sample_period;
             }
 
         });
