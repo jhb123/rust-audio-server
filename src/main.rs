@@ -3,12 +3,13 @@ use std::sync::{ Arc, Mutex, Condvar};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::f64::consts::PI;
+use eframe::glow::BUFFER;
 use egui::plot::{Line, Plot, PlotPoints};
 
 const BUFSIZE : usize = 10000;
 
 fn main()-> Result<(), eframe::Error> {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    //env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
 
     let mut data_generator = DataGenerator::new();
@@ -28,6 +29,7 @@ fn main()-> Result<(), eframe::Error> {
                 sleep = data_generator.sample_period;
             }
             thread::sleep(Duration::from_micros(sleep));
+
         }
     });
 
@@ -45,11 +47,11 @@ fn main()-> Result<(), eframe::Error> {
 
 }
 
-#[derive(Copy,Clone)]
+#[derive(Clone)]
 struct DataGenerator {
     index : usize,
-    pub x: [f64;BUFSIZE],
-    pub y: [f64;BUFSIZE],
+    pub x: Vec<f64>, //[f64;BUFSIZE],
+    pub y: Vec<f64>, //[f64;BUFSIZE],
     start_time: Instant,
     freq: f64,
     sample_period: u64
@@ -59,8 +61,8 @@ impl DataGenerator {
 
     fn new() -> DataGenerator{
         DataGenerator {
-            x : [0.0; BUFSIZE],
-            y : [0.0; BUFSIZE],
+            x : vec![0.0; BUFSIZE], //Vec::<f64>,//[0.0; BUFSIZE],
+            y : vec![0.0; BUFSIZE],//[0.0; BUFSIZE],
             start_time: Instant::now(),
             freq : 1.0,
             index : 0,
@@ -68,7 +70,7 @@ impl DataGenerator {
         }
     }
 
-    fn calculate_new_y(&mut self) -> ([f64;BUFSIZE],[f64;BUFSIZE]){
+    fn calculate_new_y(&mut self) -> (std::vec::Vec<f64>,std::vec::Vec<f64>){
 
         let time_s = self.start_time.elapsed().as_secs_f64();
         //self.x[self.index] = time_s;
@@ -80,11 +82,11 @@ impl DataGenerator {
         }
 
         self.x[self.index] = time_s;
-        self.y[self.index] = ((2.0*PI*self.freq)*time_s ).cos();
+        self.y[self.index] = ((2.0*PI*self.freq)*time_s*1e3 ).cos();
 
         
 
-        (self.x, self.y)
+        (self.x.clone(), self.y.clone())
     }
 }
 
@@ -100,7 +102,7 @@ impl MyApp {
         MyApp {
             data_source: data_source,
             data_configurer: data_configurer,
-            freq : 5.0,
+            freq : 1.0,
             sample_period: 50,
         }
     }
@@ -127,7 +129,7 @@ impl eframe::App for MyApp {
             ui.heading("Plotter");
 
             let sin: PlotPoints = (0..(BUFSIZE)).map(|i| {
-                [ xdata[i]*100000.0 ,ydata[i]]
+                [ xdata[i] ,ydata[i]]
             }).collect();
             
             //let sin = PlotPoints::from_ys_f64(&ydata);
@@ -142,12 +144,12 @@ impl eframe::App for MyApp {
             //.allow_scroll(false);
             // plt.reset();
             
-            ui.add(egui::Slider::new(&mut self.freq, 1.0..=10.0).text("Frequency"));
+            ui.add(egui::Slider::new(&mut self.freq, 0.001..=100.0).text("Frequency (kHz)").logarithmic(true));
             if (old_freq != self.freq){
                 self.data_configurer.lock().unwrap().freq = self.freq;
             }
 
-            ui.add(egui::Slider::new(&mut self.sample_period, 1..=100).text("sample_period (ms)"));
+            ui.add(egui::Slider::new(&mut self.sample_period, 1..=1000).text("sample_period (us)"));
             if (old_sample_period != self.sample_period){
                 self.data_configurer.lock().unwrap().sample_period = self.sample_period;
             }
